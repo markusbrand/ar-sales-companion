@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+        env:
+          VITE_API_BASE_URL: https://api.example.com
+          VITE_BYNDER_BASE_URL: https://bynder.example.com
+          VITE_OAUTH_CALLBACK_URL: https://app.example.com
+          VITE_OAUTH_CLIENT_ID: placeholder
+
+  # Optional: build and push Docker image for frontend (static serve)
+  # Uncomment if you want to deploy the built SPA via Docker
+  # docker:
+  #   runs-on: ubuntu-latest
+  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '20'
+  #         cache: 'npm'
+  #     - run: npm ci && npm run build
+  #       env:
+  #         VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+  #         VITE_BYNDER_BASE_URL: ${{ secrets.VITE_BYNDER_BASE_URL }}
+  #         VITE_OAUTH_CALLBACK_URL: ${{ secrets.VITE_OAUTH_CALLBACK_URL }}
+  #         VITE_OAUTH_CLIENT_ID: ${{ secrets.VITE_OAUTH_CLIENT_ID }}
+  #     - uses: docker/setup-buildx-action@v3
+  #     - uses: docker/login-action@v3
+  #       with:
+  #         registry: ghcr.io
+  #         username: ${{ github.actor }}
+  #         password: ${{ secrets.GITHUB_TOKEN }}
+  #     - run: |
+  #         docker build -t ghcr.io/${{ github.repository }}:latest -f Dockerfile .
+  #         docker push ghcr.io/${{ github.repository }}:latest
