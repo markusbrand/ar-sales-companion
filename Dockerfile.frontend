@@ -1,0 +1,28 @@
+# AR Sales Companion Frontend – Multi-Stage für Raspberry Pi (arm64, arm/v7) und amd64.
+# Build mit leerem VITE_API_BASE_URL → App nutzt relative URLs; Nginx im Container proxied /api und /auth ans Backend.
+
+FROM node:20-alpine AS build
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY index.html vite.config.ts tsconfig.json tsconfig.app.json tsconfig.node.json ./
+COPY public ./public
+COPY src ./src
+
+# Build-Args für Bynder/OAuth (leer = Platzhalter; für Produktion beim Bau übergeben)
+ARG VITE_API_BASE_URL=
+ARG VITE_BYNDER_BASE_URL=
+ARG VITE_OAUTH_CALLBACK_URL=
+ARG VITE_OAUTH_CLIENT_ID=
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ENV VITE_BYNDER_BASE_URL=$VITE_BYNDER_BASE_URL
+ENV VITE_OAUTH_CALLBACK_URL=$VITE_OAUTH_CALLBACK_URL
+ENV VITE_OAUTH_CLIENT_ID=$VITE_OAUTH_CLIENT_ID
+RUN npm run build
+
+FROM nginx:alpine
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY nginx.frontend.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

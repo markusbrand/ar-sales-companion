@@ -1,0 +1,12 @@
+# Für Frontend-Build (Dockerfile.frontend) – Backend und Unnötiges auslassen
+.git
+.github
+node_modules
+dist
+backend
+docs
+*.md
+.env
+.env.*
+!.env.example
+docker-compose*.yml

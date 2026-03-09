@@ -1,6 +1,6 @@
-# Build Backend Docker image (multi-arch) and push to GHCR.
-# Ready for Raspberry Pi (arm64, arm/v7) and amd64.
-name: Docker Backend (GHCR)
+# Build Frontend Docker image (multi-arch) and push to GHCR.
+# Für Pi: Image nutzen oder lokal mit docker-compose und .env bauen (dann echte Bynder-URLs).
+name: Docker Frontend (GHCR)
 
 on:
   push:
@@ -11,8 +11,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  # e.g. ghcr.io/owner/arsalescompanion-backend
-  IMAGE_NAME: ${{ github.repository_owner }}/${{ github.event.repository.name }}-backend
+  IMAGE_NAME: ${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend
 
 jobs:
   build-and-push:
@@ -53,8 +52,13 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: ./backend
-          file: ./backend/Dockerfile
+          context: .
+          file: ./Dockerfile.frontend
+          build-args: |
+            VITE_API_BASE_URL=
+            VITE_BYNDER_BASE_URL=
+            VITE_OAUTH_CALLBACK_URL=
+            VITE_OAUTH_CLIENT_ID=
           platforms: linux/amd64,linux/arm64,linux/arm/v7
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}

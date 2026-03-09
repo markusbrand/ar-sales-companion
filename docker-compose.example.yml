@@ -1,0 +1,33 @@
+# AR Sales Companion – Backend + Frontend auf dem Pi (oder anderem Host).
+# 1. Kopieren: cp docker-compose.example.yml docker-compose.yml
+# 2. .env anlegen (siehe docs/DEPLOY-RASPBERRY-PI.md)
+# 3. Start: docker compose up -d
+#    Beim ersten Mal wird das Frontend gebaut (einige Minuten).
+
+services:
+  backend:
+    image: ghcr.io/markusbrand/ar-sales-companion-backend:latest
+    container_name: arsalescompanion-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    # Port nur nötig, wenn du die API von außen aufrufen willst (z. B. Debug):
+    # ports:
+    #   - "8888:8888"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        VITE_API_BASE_URL: ""
+        VITE_BYNDER_BASE_URL: ${BYNDER_BASE_URL}
+        VITE_OAUTH_CALLBACK_URL: ${VITE_OAUTH_CALLBACK_URL}
+        VITE_OAUTH_CLIENT_ID: ${BYNDER_CLIENT_ID}
+    image: arsalescompanion-frontend:local
+    container_name: arsalescompanion-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend

@@ -59,6 +59,12 @@ Leichtgewichtige Web-App für den Außendienst: 3D-Modelle aus Bynder per Augmen
 - **CI:** Bei Push/PR auf `main`/`develop`: Lint und Build (`.github/workflows/ci.yml`).
 - Build nutzt Platzhalter-Env-Variablen; für Docker-/Deploy-Jobs können Repository-Secrets für die echten Werte genutzt werden.
 
+## Deployment (Raspberry Pi)
+
+Backend- und Frontend-Images werden als Multi-Arch (arm64, arm/v7) nach GHCR gebaut. **Backend und Frontend laufen auf dem Pi** in Docker.
+
+**[docs/DEPLOY-RASPBERRY-PI.md](docs/DEPLOY-RASPBERRY-PI.md)** – Docker auf dem Pi, Repo klonen, `.env` anlegen, GHCR-Login, `docker compose up -d`. Die App ist unter `http://PI-IP` (Port 80) erreichbar.
+
 ## Projektstruktur (Auszug)
 
 - `src/pages/` – Katalog, Asset-Detail, Favoriten, OAuth-Callback
