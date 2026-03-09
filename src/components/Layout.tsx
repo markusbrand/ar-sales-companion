@@ -19,35 +19,26 @@ export function Layout({ children }: { children: ReactNode }) {
           <Typography
             variant="h6"
             component="button"
+            type="button"
             onClick={() => navigate('/')}
             sx={{ flexGrow: 1, cursor: 'pointer', color: 'inherit', background: 'none', border: 'none', textAlign: 'left' }}
           >
             AR Sales Companion
           </Typography>
-          <Button
-            color="inherit"
-            startIcon={<ViewListIcon />}
-            onClick={() => navigate('/')}
-            sx={{ opacity: location.pathname === '/' ? 1 : 0.8 }}
-          >
+          <Button type="button" color="inherit" startIcon={<ViewListIcon />} onClick={() => navigate('/')} sx={{ opacity: location.pathname === '/' ? 1 : 0.8 }}>
             Katalog
           </Button>
-          <Button
-            color="inherit"
-            startIcon={<FavoriteIcon />}
-            onClick={() => navigate('/favorites')}
-            sx={{ opacity: location.pathname === '/favorites' ? 1 : 0.8 }}
-          >
+          <Button type="button" color="inherit" startIcon={<FavoriteIcon />} onClick={() => navigate('/favorites')} sx={{ opacity: location.pathname === '/favorites' ? 1 : 0.8 }}>
             Favoriten
           </Button>
           {isLoading ? (
             <CircularProgress size={24} color="inherit" sx={{ ml: 1 }} />
           ) : isAuthenticated ? (
-            <Button color="inherit" startIcon={<LogoutIcon />} onClick={logout}>
+            <Button type="button" color="inherit" startIcon={<LogoutIcon />} onClick={logout}>
               Abmelden
             </Button>
           ) : (
-            <Button color="inherit" startIcon={<LoginIcon />} onClick={login}>
+            <Button type="button" color="inherit" startIcon={<LoginIcon />} onClick={login}>
               Anmelden
             </Button>
           )}

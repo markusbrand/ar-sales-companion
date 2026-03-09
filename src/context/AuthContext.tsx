@@ -6,6 +6,8 @@ interface AuthContextValue {
   isLoading: boolean;
   login: () => void;
   logout: () => void;
+  /** Nach erfolgreichem OAuth-Callback: Token ist bereits in sessionStorage, App als angemeldet setzen. */
+  setAuthenticated: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -39,13 +41,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsAuthenticated(false);
   }, []);
 
+  const setAuthenticated = useCallback(() => {
+    setIsAuthenticated(true);
+    setIsLoading(false);
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ isAuthenticated, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, isLoading, login, logout, setAuthenticated }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
+// Hook in same file is intentional; context + provider + hook are used together
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');

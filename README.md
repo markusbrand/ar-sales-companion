@@ -32,7 +32,7 @@ Leichtgewichtige Web-App für den Außendienst: 3D-Modelle aus Bynder per Augmen
 
    In `.env` eintragen:
 
-   - `VITE_API_BASE_URL` – Basis-URL des Asset-Broker-Backends (z. B. `http://localhost:8000`)
+   - `VITE_API_BASE_URL` – Basis-URL des Asset-Broker-Backends (z. B. `http://localhost:8888`)
    - `VITE_BYNDER_BASE_URL` – Bynder-Instanz (z. B. `https://your-company.getbynder.com`)
    - `VITE_OAUTH_CALLBACK_URL` – Öffentliche Basis-URL dieser App (z. B. `http://localhost:5173` oder Produktion)
    - `VITE_OAUTH_CLIENT_ID` – Bynder OAuth Client ID

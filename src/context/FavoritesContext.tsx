@@ -63,6 +63,8 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// Hook in same file is intentional; context + provider + hook are used together
+// eslint-disable-next-line react-refresh/only-export-components
 export function useFavorites() {
   const ctx = useContext(FavoritesContext);
   if (!ctx) throw new Error('useFavorites must be used within FavoritesProvider');
