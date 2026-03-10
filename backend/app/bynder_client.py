@@ -214,8 +214,8 @@ async def get_download_url(access_token: str, media_id: str) -> str | None:
             return val.get("url") or val.get("location") or val.get("href")
         return None
 
-    # Top-level string or nested URL keys
-    for key in ("url", "redirect", "download_url", "downloadUrl", "location", "href"):
+    # Top-level string or nested URL keys (s3_file is Bynder's actual response key)
+    for key in ("url", "redirect", "download_url", "downloadUrl", "s3_file", "location", "href"):
         if key in data:
             download_url = _get_url(data[key])
             if download_url:
