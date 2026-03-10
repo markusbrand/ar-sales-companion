@@ -182,6 +182,7 @@ async def get_media_by_id(access_token: str, media_id: str) -> dict | None:
 async def get_download_url(access_token: str, media_id: str) -> str | None:
     """Get temporary download URL for asset GET /api/v4/media/{id}/download."""
     url = urljoin(_base(), f"api/v4/media/{media_id}/download")
+    logger.info("Bynder download URL request: media_id=%s", media_id)
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(url, headers=_headers(access_token), timeout=15.0)
@@ -189,40 +190,63 @@ async def get_download_url(access_token: str, media_id: str) -> str | None:
                 logger.warning("Bynder download URL: 401 Invalid or expired token id=%s", media_id)
                 raise BynderUnauthorizedError("Invalid or expired token")
             if resp.status_code != 200:
-                logger.error("Bynder download URL failed: id=%s status=%s body=%s", media_id, resp.status_code, resp.text[:500])
+                logger.error(
+                    "Bynder download URL failed: id=%s status=%s body=%s",
+                    media_id, resp.status_code, resp.text[:500],
+                )
                 return None
             data = resp.json()
     except BynderUnauthorizedError:
         raise
     except Exception as e:
-        logger.exception("Bynder download request error: %s", e)
+        logger.exception("Bynder download request error: id=%s error=%s", media_id, e)
         return None
 
     # Response often has "url" or "s3" or "redirect" or similar
     if isinstance(data, dict):
         for key in ("url", "redirect", "download_url", "s3", "location"):
             if key in data and isinstance(data[key], str):
-                return data[key]
+                download_url = data[key]
+                logger.info(
+                    "Bynder download URL ok: media_id=%s key=%s url_len=%d",
+                    media_id, key, len(download_url),
+                )
+                return download_url
         if "urls" in data and isinstance(data["urls"], list) and len(data["urls"]) > 0:
             u = data["urls"][0]
-            return u.get("url", u.get("location")) if isinstance(u, dict) else None
+            download_url = u.get("url", u.get("location")) if isinstance(u, dict) else None
+            if download_url:
+                logger.info("Bynder download URL ok: media_id=%s from urls[0] url_len=%d", media_id, len(download_url))
+                return download_url
+    logger.warning("Bynder download URL: no url in response for id=%s keys=%s", media_id, list(data.keys())[:20] if isinstance(data, dict) else "not-dict")
     return None
 
 
 async def get_model_bytes(access_token: str, media_id: str) -> bytes | None:
     """Fetch GLB model bytes by getting download URL and streaming the response. Returns None on failure."""
+    logger.info("Model bytes request: media_id=%s", media_id)
     download_url = await get_download_url(access_token, media_id)
     if not download_url:
+        logger.error("Model bytes: no download URL for media_id=%s", media_id)
         return None
     try:
         async with httpx.AsyncClient(follow_redirects=True) as client:
             resp = await client.get(download_url, timeout=60.0)
             if resp.status_code != 200:
-                logger.warning("Model stream failed: id=%s status=%s", media_id, resp.status_code)
+                logger.error(
+                    "Model stream failed: media_id=%s status=%s response_len=%d",
+                    media_id, resp.status_code, len(resp.content),
+                )
                 return None
-            return resp.content
+            content = resp.content
+            content_type = resp.headers.get("content-type", "")
+            logger.info(
+                "Model stream ok: media_id=%s size=%d content_type=%s",
+                media_id, len(content), content_type[:80] if content_type else "none",
+            )
+            return content
     except Exception as e:
-        logger.exception("Model stream error for %s: %s", media_id, e)
+        logger.exception("Model stream error: media_id=%s error=%s", media_id, e)
         return None
 
 

@@ -109,6 +109,10 @@ async def api_asset(asset_id: str, authorization: str | None = Header(None, alia
         )
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
+    logger.info(
+        "Asset returned: asset_id=%s has_glb_url=%s glb_url_len=%d",
+        asset_id, bool(asset.glbUrl), len(asset.glbUrl) if asset.glbUrl else 0,
+    )
     return asset
 
 
@@ -133,7 +137,8 @@ def _model_token_verify(token: str) -> str | None:
     payload_b64, sig = token.rsplit(".", 1)
     try:
         payload = urlsafe_b64decode(payload_b64 + "==").decode("utf-8")
-    except Exception:
+    except Exception as e:
+        logger.debug("Model token decode failed: %s", e)
         return None
     expected_sig = hmac.new(
         MODEL_URL_SECRET.encode("utf-8"),
@@ -141,13 +146,16 @@ def _model_token_verify(token: str) -> str | None:
         hashlib.sha256,
     ).hexdigest()
     if not hmac.compare_digest(expected_sig, sig):
+        logger.debug("Model token signature mismatch")
         return None
     parts = payload.split(":")
     if len(parts) != 2:
         return None
     asset_id, expiry_str = parts
     try:
-        if int(expiry_str) < int(time.time()):
+        expiry_ts = int(expiry_str)
+        if expiry_ts < int(time.time()):
+            logger.info("Model token expired: asset_id=%s expiry_ts=%d", asset_id, expiry_ts)
             return None
     except ValueError:
         return None
@@ -170,23 +178,36 @@ def _model_cache_cleanup():
 @app.get("/api/assets/{asset_id}/model")
 async def api_asset_model(
     asset_id: str,
+    request: Request,
     authorization: str | None = Header(None, alias="Authorization"),
     token: str | None = Query(None, alias="token"),
 ):
     """Stream GLB model file. Auth: Bearer header or ?token= (short-lived signed URL for same-origin / Quick Look)."""
+    user_agent = request.headers.get("user-agent", "")[:200]
     if token:
         verified_id = _model_token_verify(token)
         if not verified_id or verified_id != asset_id:
-            logger.warning("Model token invalid or expired for asset_id=%s", asset_id)
+            logger.warning(
+                "Model token invalid or expired: asset_id=%s has_token=%s user_agent=%s",
+                asset_id, bool(token), user_agent,
+            )
             raise HTTPException(status_code=401, detail="Invalid or expired model URL token")
         _model_cache_cleanup()
         cached = _model_cache.get(token)
         if not cached:
+            logger.warning(
+                "Model cache miss (expired or unknown token): asset_id=%s cache_size=%d user_agent=%s",
+                asset_id, len(_model_cache), user_agent,
+            )
             raise HTTPException(
                 status_code=410,
                 detail="Model URL expired; please reopen the asset and try AR again.",
             )
         body, _ = cached
+        logger.info(
+            "Model streamed from cache: asset_id=%s size=%d user_agent=%s",
+            asset_id, len(body), user_agent,
+        )
         return Response(
             content=body,
             media_type="model/gltf-binary",
@@ -197,13 +218,17 @@ async def api_asset_model(
         )
     access_token = get_bearer_token(authorization)
     if not access_token:
+        logger.warning("Model requested without auth: asset_id=%s user_agent=%s", asset_id, user_agent)
         raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
     try:
         body = await get_model_bytes(access_token, asset_id)
     except BynderUnauthorizedError:
+        logger.warning("Model Bynder 401: asset_id=%s", asset_id)
         raise HTTPException(status_code=401, detail="Token expired or invalid. Please log in again.")
     if not body:
+        logger.error("Model not found or stream failed: asset_id=%s", asset_id)
         raise HTTPException(status_code=404, detail="Model not found or could not be streamed")
+    logger.info("Model streamed with Bearer: asset_id=%s size=%d", asset_id, len(body))
     return Response(
         content=body,
         media_type="model/gltf-binary",
@@ -229,18 +254,25 @@ async def api_asset_model_url(
         )
     token = get_bearer_token(authorization)
     if not token:
+        logger.warning("Model URL requested without Bearer: asset_id=%s", asset_id)
         raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
     try:
         body = await get_model_bytes(token, asset_id)
     except BynderUnauthorizedError:
+        logger.warning("Model URL Bynder 401: asset_id=%s", asset_id)
         raise HTTPException(status_code=401, detail="Token expired or invalid. Please log in again.")
     if not body:
+        logger.error("Model URL: model not found or stream failed: asset_id=%s", asset_id)
         raise HTTPException(status_code=404, detail="Model not found or could not be streamed")
     signed = _model_token_create(asset_id, ttl_seconds=_MODEL_CACHE_TTL)
     _model_cache_cleanup()
     _model_cache[signed] = (body, int(time.time()) + _MODEL_CACHE_TTL)
     base = str(request.base_url).rstrip("/")
     model_url = f"{base}/api/assets/{asset_id}/model?token={signed}"
+    logger.info(
+        "Model URL issued: asset_id=%s size=%d cache_entries=%d base=%s",
+        asset_id, len(body), len(_model_cache), base,
+    )
     return {"url": model_url}
 
 
