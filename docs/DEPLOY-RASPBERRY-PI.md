@@ -46,6 +46,9 @@ VITE_OAUTH_CALLBACK_URL=http://DEINE-PI-IP
 
 # Backend braucht die volle Callback-URL (wird aus VITE_OAUTH_CALLBACK_URL abgeleitet)
 OAUTH_CALLBACK_URL=http://DEINE-PI-IP/auth/callback
+
+# Optional: nur Assets mit Tag „AR“ anzeigen (für GLB/AR-Katalog)
+# BYNDER_FILTER_TAG=AR
 ```
 
 In Bynder muss unter der OAuth-App als Redirect URI genau `OAUTH_CALLBACK_URL` eingetragen sein (z. B. `http://192.168.1.10/auth/callback`).
@@ -63,6 +66,15 @@ echo DEIN_GITHUB_TOKEN | docker login ghcr.io -u markusbrand --password-stdin
 ---
 
 ## 3. Backend und Frontend starten
+
+**Option A – Deploy-Skript (empfohlen):**
+
+```bash
+chmod +x scripts/deploy-pi.sh
+./scripts/deploy-pi.sh
+```
+
+**Option B – Manuell:**
 
 ```bash
 docker compose up -d
@@ -89,8 +101,8 @@ docker compose logs -f
 | Repo klonen | `git clone https://github.com/markusbrand/ar-sales-companion.git && cd ar-sales-companion` |
 | Compose + .env | `cp docker-compose.example.yml docker-compose.yml` und `.env` anlegen |
 | GHCR-Login | `echo TOKEN \| docker login ghcr.io -u markusbrand --password-stdin` |
-| Start | `docker compose up -d` |
-| App aufrufen | `http://DEINE-PI-IP` |
+| Start | `./scripts/deploy-pi.sh` oder `docker compose up -d` |
+| App aufrufen | `http://DEINE-PI-IP` (Pi-IP mit `hostname -I`) |
 
 ---
 
