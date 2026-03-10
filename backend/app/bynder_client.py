@@ -202,23 +202,61 @@ async def get_download_url(access_token: str, media_id: str) -> str | None:
         logger.exception("Bynder download request error: id=%s error=%s", media_id, e)
         return None
 
-    # Response often has "url" or "s3" or "redirect" or similar
-    if isinstance(data, dict):
-        for key in ("url", "redirect", "download_url", "s3", "location"):
-            if key in data and isinstance(data[key], str):
-                download_url = data[key]
+    # Response shape: Bynder may return {"url": "..."}, {"s3": {"url": "..."}}, {"urls": [{"url": "..."}]}, etc.
+    if not isinstance(data, dict):
+        logger.warning("Bynder download URL: response is not a dict for id=%s", media_id)
+        return None
+
+    def _get_url(val):
+        if isinstance(val, str) and val.startswith("http"):
+            return val
+        if isinstance(val, dict):
+            return val.get("url") or val.get("location") or val.get("href")
+        return None
+
+    # Top-level string or nested URL keys
+    for key in ("url", "redirect", "download_url", "downloadUrl", "location", "href"):
+        if key in data:
+            download_url = _get_url(data[key])
+            if download_url:
                 logger.info(
                     "Bynder download URL ok: media_id=%s key=%s url_len=%d",
                     media_id, key, len(download_url),
                 )
                 return download_url
-        if "urls" in data and isinstance(data["urls"], list) and len(data["urls"]) > 0:
-            u = data["urls"][0]
-            download_url = u.get("url", u.get("location")) if isinstance(u, dict) else None
+
+    # Nested: e.g. s3: { url: "..." }
+    for key in ("s3", "temporary", "download", "files"):
+        if key in data and isinstance(data[key], dict):
+            download_url = _get_url(data[key])
             if download_url:
-                logger.info("Bynder download URL ok: media_id=%s from urls[0] url_len=%d", media_id, len(download_url))
+                logger.info(
+                    "Bynder download URL ok: media_id=%s from %s url_len=%d",
+                    media_id, key, len(download_url),
+                )
                 return download_url
-    logger.warning("Bynder download URL: no url in response for id=%s keys=%s", media_id, list(data.keys())[:20] if isinstance(data, dict) else "not-dict")
+
+    # Array: urls[0] or items[0]
+    for key in ("urls", "items", "downloads"):
+        if key in data and isinstance(data[key], list) and len(data[key]) > 0:
+            first = data[key][0]
+            download_url = first.get("url", first.get("location")) if isinstance(first, dict) else (first if isinstance(first, str) and first.startswith("http") else None)
+            if download_url:
+                logger.info("Bynder download URL ok: media_id=%s from %s[0] url_len=%d", media_id, key, len(download_url))
+                return download_url
+
+    # Fallback: any key whose value is an http string
+    for k, v in data.items():
+        if isinstance(v, str) and v.startswith("http"):
+            logger.info("Bynder download URL ok: media_id=%s key=%s (fallback) url_len=%d", media_id, k, len(v))
+            return v
+
+    # Log full structure for debugging (keys and value types, no sensitive data)
+    structure = {k: type(v).__name__ if not isinstance(v, (str, type(None))) else ("str(%d)" % len(v) if isinstance(v, str) else "null") for k, v in data.items()}
+    logger.warning(
+        "Bynder download URL: no url in response for id=%s response_keys=%s structure=%s",
+        media_id, list(data.keys()), structure,
+    )
     return None
 
 
