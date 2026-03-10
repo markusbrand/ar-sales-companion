@@ -27,3 +27,7 @@ BYNDER_FILTER_TAG = (os.getenv("BYNDER_FILTER_TAG", "").strip() or None)
 
 # Secret to sign short-lived model URLs (so Quick Look / model-viewer can load GLB without Bearer). Required for token-based /model.
 MODEL_URL_SECRET = (os.getenv("MODEL_URL_SECRET", "").strip() or None)
+
+# Public base URL for issued model/download URLs (including port if needed). If set, model-url uses this instead of request.base_url.
+# Example: http://192.168.0.150:8888 or https://ar.example.com
+PUBLIC_BASE_URL = (os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/") or None)

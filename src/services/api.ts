@@ -82,3 +82,17 @@ export async function fetchModelUrl(assetId: string): Promise<string | null> {
   const data = (await res.json()) as { url?: string };
   return data.url ?? null;
 }
+
+/**
+ * Fetch model (GLB) as Blob with Bearer auth. Use for reliable download (no token-URL/port issues).
+ */
+export async function fetchModelBlob(assetId: string): Promise<Blob> {
+  const base = getBaseUrl();
+  const url = `${base}/api/assets/${encodeURIComponent(assetId)}/model`;
+  const res = await fetchWithAuthRetry(url, { headers: getAuthHeaders() });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(res.status === 404 ? 'Modell nicht gefunden.' : `Download fehlgeschlagen: ${res.status}`);
+  }
+  return res.blob();
+}

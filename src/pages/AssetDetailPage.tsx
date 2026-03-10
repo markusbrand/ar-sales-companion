@@ -1,12 +1,12 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Box, Button, Typography, CircularProgress, Alert, IconButton, Link } from '@mui/material';
+import { Box, Button, Typography, CircularProgress, Alert, IconButton } from '@mui/material';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import ViewInArIcon from '@mui/icons-material/ViewInAr';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DownloadIcon from '@mui/icons-material/Download';
-import { fetchAsset, fetchModelUrl, AuthExpiredError } from '@/services/api';
+import { fetchAsset, fetchModelUrl, fetchModelBlob, AuthExpiredError } from '@/services/api';
 import { ModelViewer, type ModelViewerElement } from '@/components/ModelViewer';
 import { useAuth } from '@/context/AuthContext';
 import { useFavorites } from '@/context/FavoritesContext';
@@ -203,18 +203,29 @@ export function AssetDetailPage() {
             Tipp: AR funktioniert auf dem iPhone am ehesten in Safari. In Chrome erscheint oft „Objekt konnte nicht geöffnet werden“.
           </Typography>
         )}
-        {proxyModelUrl && (
-          <Link
-            href={proxyModelUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            download="model.glb"
-            sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}
-          >
-            <DownloadIcon fontSize="small" />
-            Modell als GLB herunterladen
-          </Link>
-        )}
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<DownloadIcon />}
+          onClick={async () => {
+            if (!asset) return;
+            try {
+              const blob = await fetchModelBlob(asset.id);
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `${asset.name.replace(/[^a-zA-Z0-9.-]+/g, '_')}.glb`;
+              a.click();
+              URL.revokeObjectURL(url);
+              showMessage('Download gestartet.', 'success');
+            } catch (e) {
+              showMessage(e instanceof Error ? e.message : 'Download fehlgeschlagen.', 'error');
+            }
+          }}
+          sx={{ mt: 0.5 }}
+        >
+          Modell als GLB herunterladen
+        </Button>
       </Box>
     </Box>
   );

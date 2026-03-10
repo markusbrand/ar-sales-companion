@@ -17,7 +17,7 @@ from app.bynder_client import (
     get_thumbnail_bytes,
     list_assets,
 )
-from app.config import MODEL_URL_SECRET
+from app.config import MODEL_URL_SECRET, PUBLIC_BASE_URL
 from app.models import AssetResponse, RefreshRequest, TokenRequest, TokenResponse
 
 logging.basicConfig(
@@ -183,6 +183,10 @@ async def api_asset_model(
     token: str | None = Query(None, alias="token"),
 ):
     """Stream GLB model file. Auth: Bearer header or ?token= (short-lived signed URL for same-origin / Quick Look)."""
+    logger.info(
+        "Model endpoint hit: asset_id=%s path=%s has_token=%s has_auth=%s",
+        asset_id, request.url.path, bool(token), bool(get_bearer_token(authorization)),
+    )
     user_agent = request.headers.get("user-agent", "")[:200]
     if token:
         verified_id = _model_token_verify(token)
@@ -267,7 +271,7 @@ async def api_asset_model_url(
     signed = _model_token_create(asset_id, ttl_seconds=_MODEL_CACHE_TTL)
     _model_cache_cleanup()
     _model_cache[signed] = (body, int(time.time()) + _MODEL_CACHE_TTL)
-    base = str(request.base_url).rstrip("/")
+    base = PUBLIC_BASE_URL if PUBLIC_BASE_URL else str(request.base_url).rstrip("/")
     model_url = f"{base}/api/assets/{asset_id}/model?token={signed}"
     logger.info(
         "Model URL issued: asset_id=%s size=%d cache_entries=%d base=%s",
