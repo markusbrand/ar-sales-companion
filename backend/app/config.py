@@ -21,3 +21,6 @@ BYNDER_FILTER_VALUE = (os.getenv("BYNDER_FILTER_VALUE") or "POSM").strip() or No
 
 # Nur Assets anzeigen, die als GLB erkannt werden. Default: aus (Bynder-Felder für Typ oft anders).
 BYNDER_FILTER_GLB_ONLY = os.getenv("BYNDER_FILTER_GLB_ONLY", "").strip().lower() in ("1", "true", "yes")
+
+# Nur Assets anzeigen, die einen bestimmten Tag haben (z. B. "AR" für GLB-Dateien). Leer = kein Tag-Filter.
+BYNDER_FILTER_TAG = (os.getenv("BYNDER_FILTER_TAG", "").strip() or None)

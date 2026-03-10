@@ -1,6 +1,15 @@
 import type { Asset } from '@/types/asset';
 
-const getBaseUrl = () => import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || '';
+/**
+ * In dev, use relative base so Vite proxies /api and /auth/token to the backend (port 8888).
+ * In production, use VITE_API_BASE_URL.
+ */
+export function getApiBaseUrl(): string {
+  if (import.meta.env.DEV) return '';
+  return import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? '';
+}
+
+const getBaseUrl = getApiBaseUrl;
 
 function getAuthHeaders(): HeadersInit {
   const token = sessionStorage.getItem('bynder_access_token');

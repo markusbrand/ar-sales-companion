@@ -13,6 +13,7 @@ from app.config import (
     BYNDER_BASE_URL,
     BYNDER_FILTER_GLB_ONLY,
     BYNDER_FILTER_METAPROPERTY_ID,
+    BYNDER_FILTER_TAG,
     BYNDER_FILTER_VALUE,
 )
 from app.models import AssetResponse
@@ -76,6 +77,26 @@ def _item_has_metaproperty_option(item: dict, metaproperty_id: str, option_value
     return False
 
 
+def _item_has_tag(item: dict, tag_name: str) -> bool:
+    """True if this media item has the given tag (case-insensitive)."""
+    if not tag_name or not tag_name.strip():
+        return True
+    want = tag_name.strip().lower()
+    tags = item.get("tags") or item.get("tag") or item.get("tagList") or item.get("tagNames") or []
+    if isinstance(tags, str):
+        tags = [t.strip() for t in tags.split(",")] if tags else []
+    if not isinstance(tags, list):
+        return False
+    for t in tags:
+        if isinstance(t, str) and t.strip().lower() == want:
+            return True
+        if isinstance(t, dict):
+            name = (t.get("name") or t.get("label") or t.get("value") or "").strip().lower()
+            if name == want:
+                return True
+    return False
+
+
 def _base() -> str:
     return (BYNDER_BASE_URL or "").rstrip("/") + "/"
 
@@ -84,10 +105,12 @@ def _headers(access_token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {access_token}"}
 
 
-async def get_media_list(access_token: str) -> list[dict]:
-    """Fetch media list from Bynder GET /api/v4/media/."""
+async def get_media_list(access_token: str, tag_filter: str | None = None) -> list[dict]:
+    """Fetch media list from Bynder GET /api/v4/media/. Optionally request server-side tag filter if API supports it."""
     url = urljoin(_base(), "api/v4/media/")
     params = {"limit": 100, "page": 1}
+    if tag_filter and tag_filter.strip():
+        params["tag"] = tag_filter.strip()
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(url, params=params, headers=_headers(access_token), timeout=30.0)
@@ -186,26 +209,52 @@ def _name(item: dict) -> str:
     return item.get("name") or item.get("label") or item.get("id") or "Unnamed"
 
 
+def _value_indicates_glb(val: str) -> bool:
+    """True if string value indicates GLB (extension or MIME type)."""
+    if not isinstance(val, str):
+        return False
+    s = val.strip().lower()
+    if s == "glb":
+        return True
+    if s in ("model/gltf-binary", "model/glb"):
+        return True
+    if s.endswith(".glb"):
+        return True
+    return False
+
+
 def _item_is_glb(item: dict) -> bool:
-    """True if this media item is a GLB file (by extension or type)."""
-    # Extension: Bynder often uses "extension" or "type" (e.g. "glb", "GLB")
-    for key in ("extension", "type", "fileType", "mediaType", "format"):
+    """True if this media item is a GLB file (by extension, type, or MIME type)."""
+    # Direct top-level keys (Bynder may use different names)
+    for key in ("extension", "type", "fileType", "mediaType", "format", "fileName"):
         val = item.get(key)
-        if isinstance(val, str) and val.strip().lower() == "glb":
+        if isinstance(val, str) and _value_indicates_glb(val):
             return True
-    # Some APIs return type as number or object; check typeName / typeLabel
-    type_info = item.get("typeInfo") or item.get("type") or {}
+    # MIME type fields
+    for key in ("mimeType", "mimetype", "contentType", "mediaType"):
+        val = item.get(key)
+        if isinstance(val, str) and val.strip().lower() in ("model/gltf-binary", "model/glb"):
+            return True
+    # typeInfo / type as object
+    type_info = item.get("typeInfo") or item.get("type")
     if isinstance(type_info, dict):
-        for k in ("name", "label", "extension", "type"):
+        for k in ("name", "label", "extension", "type", "mimeType"):
             v = type_info.get(k)
-            if isinstance(v, str) and v.strip().lower() == "glb":
+            if isinstance(v, str) and _value_indicates_glb(v):
                 return True
-    if isinstance(type_info, str) and type_info.strip().lower() == "glb":
+    if isinstance(type_info, str) and _value_indicates_glb(type_info):
         return True
-    # Fallback: name or originalFilename ends with .glb
-    name = (item.get("name") or item.get("originalFilename") or item.get("filename") or "") or ""
-    if isinstance(name, str) and name.strip().lower().endswith(".glb"):
-        return True
+    # Name / filename (originalFilename, fileName, filename, name)
+    for key in ("name", "originalFilename", "filename", "fileName"):
+        val = item.get(key)
+        if isinstance(val, str) and val.strip().lower().endswith(".glb"):
+            return True
+    # Recursively check nested dicts (e.g. type: { extension: "glb" })
+    for v in item.values():
+        if isinstance(v, dict):
+            for k in ("extension", "type", "format", "name"):
+                if _value_indicates_glb(v.get(k)):
+                    return True
     return False
 
 
@@ -229,8 +278,8 @@ _FALLBACK_MEDIA_ID = "B68D9E65-4230-4D83-9E9D58954765F26B"
 
 
 async def list_assets(access_token: str) -> list[AssetResponse]:
-    """List assets for catalog grid. Filtert nach Metaproperty-ID und Wert (z. B. Source=POSM)."""
-    items = await get_media_list(access_token)
+    """List assets for catalog grid. Filtert nach Tag (z. B. AR), Metaproperty und optional GLB."""
+    items = await get_media_list(access_token, tag_filter=BYNDER_FILTER_TAG)
     used_fallback = False
     if not items:
         item = await get_media_by_id(access_token, _FALLBACK_MEDIA_ID)
@@ -238,6 +287,19 @@ async def list_assets(access_token: str) -> list[AssetResponse]:
             logger.info("Media list war leer, Fallback: ein Asset per ID geladen (%s)", _FALLBACK_MEDIA_ID)
             items = [item]
             used_fallback = True
+
+    # Optional: nur Assets mit bestimmtem Tag (z. B. "AR" für GLB/AR-fähige Dateien)
+    if BYNDER_FILTER_TAG:
+        before_tag = len(items)
+        items = [i for i in items if _item_has_tag(i, BYNDER_FILTER_TAG)]
+        if before_tag != len(items):
+            logger.info("Tag-Filter '%s': %d -> %d assets", BYNDER_FILTER_TAG, before_tag, len(items))
+        if len(items) == 0 and before_tag > 0:
+            logger.warning(
+                "Tag-Filter '%s' entfernte alle %d Items. Prüfen, ob Tag in Bynder korrekt vergeben ist.",
+                BYNDER_FILTER_TAG, before_tag,
+            )
+
     if not used_fallback and BYNDER_FILTER_METAPROPERTY_ID and BYNDER_FILTER_VALUE:
         before = len(items)
         filtered = [
@@ -259,11 +321,25 @@ async def list_assets(access_token: str) -> list[AssetResponse]:
 
     # Optional: nur Assets anzeigen, die als GLB erkannt werden (BYNDER_FILTER_GLB_ONLY=true)
     if BYNDER_FILTER_GLB_ONLY:
+        items_before_glb = items
         before_glb = len(items)
         items = [i for i in items if _item_is_glb(i)]
         if before_glb != len(items):
             logger.info("GLB-Filter: %d -> %d assets (nur GLB-Dateien)", before_glb, len(items))
-
+        if len(items) == 0 and before_glb > 0:
+            # Log type-related fields of first item to diagnose Bynder response shape
+            first = items_before_glb[0]
+            if isinstance(first, dict):
+                type_keys = [k for k in first if "type" in k.lower() or "ext" in k.lower() or "format" in k.lower() or "name" in k.lower() or "file" in k.lower()]
+                sample = {k: first[k] for k in type_keys[:20]}
+                logger.warning(
+                    "GLB-Filter removed all %d items. Bynder may use different field names. "
+                    "Sample type-related keys from first item: %s",
+                    before_glb, json.dumps(sample, default=str)[:600],
+                )
+            # Fallback: show all assets so catalog is not empty; single-asset view still gets glbUrl from download endpoint
+            logger.warning("GLB-Filter fallback: showing all %d assets (GLB detection may need Bynder-specific fields).", before_glb)
+            items = items_before_glb
     return [bynder_item_to_asset(item, glb_url=None) for item in items]
 
 

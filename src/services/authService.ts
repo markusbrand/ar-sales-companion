@@ -1,3 +1,5 @@
+import { getApiBaseUrl } from '@/services/api';
+
 const CALLBACK_PATH = '/auth/callback';
 
 if (typeof window !== 'undefined' && import.meta.env.DEV) {
@@ -90,7 +92,7 @@ export const authService = {
       console.error('OAuth state mismatch');
       return { ok: false, error: 'OAuth state mismatch' };
     }
-    const apiBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+    const apiBase = getApiBaseUrl();
     const res = await fetch(`${apiBase}/auth/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
