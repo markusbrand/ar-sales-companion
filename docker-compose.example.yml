@@ -21,9 +21,10 @@ services:
       dockerfile: Dockerfile.frontend
       args:
         VITE_API_BASE_URL: ""
-        VITE_BYNDER_BASE_URL: ${BYNDER_BASE_URL}
+        # Use VITE_* or BYNDER_* from .env (frontend bakes these at build time)
+        VITE_BYNDER_BASE_URL: ${VITE_BYNDER_BASE_URL:-${BYNDER_BASE_URL}}
         VITE_OAUTH_CALLBACK_URL: ${VITE_OAUTH_CALLBACK_URL}
-        VITE_OAUTH_CLIENT_ID: ${BYNDER_CLIENT_ID}
+        VITE_OAUTH_CLIENT_ID: ${VITE_OAUTH_CLIENT_ID:-${BYNDER_CLIENT_ID}}
     image: arsalescompanion-frontend:local
     container_name: arsalescompanion-frontend
     restart: unless-stopped
