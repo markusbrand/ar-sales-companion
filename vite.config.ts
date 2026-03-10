@@ -63,6 +63,10 @@ export default defineConfig({
         target: 'http://localhost:8888',
         changeOrigin: true,
       },
+      '/auth/refresh': {
+        target: 'http://localhost:8888',
+        changeOrigin: true,
+      },
     },
   },
 });

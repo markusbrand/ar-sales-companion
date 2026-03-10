@@ -21,6 +21,11 @@ from app.models import AssetResponse
 logger = logging.getLogger(__name__)
 
 
+class BynderUnauthorizedError(Exception):
+    """Raised when Bynder API returns 401 (invalid or expired token)."""
+    pass
+
+
 def _normalize_id(raw: str) -> str:
     return (raw or "").strip().upper().replace(" ", "")
 
@@ -114,10 +119,15 @@ async def get_media_list(access_token: str, tag_filter: str | None = None) -> li
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(url, params=params, headers=_headers(access_token), timeout=30.0)
+            if resp.status_code == 401:
+                logger.warning("Bynder media list: 401 Invalid or expired token")
+                raise BynderUnauthorizedError("Invalid or expired token")
             if resp.status_code != 200:
                 logger.error("Bynder media list failed: status=%s body=%s", resp.status_code, resp.text[:500])
                 return []
             data = resp.json()
+    except BynderUnauthorizedError:
+        raise
     except Exception as e:
         logger.exception("Bynder media list request error: %s", e)
         return []
@@ -155,10 +165,15 @@ async def get_media_by_id(access_token: str, media_id: str) -> dict | None:
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(url, headers=_headers(access_token), timeout=15.0)
+            if resp.status_code == 401:
+                logger.warning("Bynder media get: 401 Invalid or expired token id=%s", media_id)
+                raise BynderUnauthorizedError("Invalid or expired token")
             if resp.status_code != 200:
                 logger.error("Bynder media get failed: id=%s status=%s body=%s", media_id, resp.status_code, resp.text[:500])
                 return None
             return resp.json()
+    except BynderUnauthorizedError:
+        raise
     except Exception as e:
         logger.exception("Bynder media get request error: %s", e)
         return None
@@ -170,10 +185,15 @@ async def get_download_url(access_token: str, media_id: str) -> str | None:
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(url, headers=_headers(access_token), timeout=15.0)
+            if resp.status_code == 401:
+                logger.warning("Bynder download URL: 401 Invalid or expired token id=%s", media_id)
+                raise BynderUnauthorizedError("Invalid or expired token")
             if resp.status_code != 200:
                 logger.error("Bynder download URL failed: id=%s status=%s body=%s", media_id, resp.status_code, resp.text[:500])
                 return None
             data = resp.json()
+    except BynderUnauthorizedError:
+        raise
     except Exception as e:
         logger.exception("Bynder download request error: %s", e)
         return None

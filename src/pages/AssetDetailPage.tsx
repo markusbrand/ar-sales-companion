@@ -5,7 +5,7 @@ import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import ViewInArIcon from '@mui/icons-material/ViewInAr';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { fetchAsset } from '@/services/api';
+import { fetchAsset, AuthExpiredError } from '@/services/api';
 import { ModelViewer } from '@/components/ModelViewer';
 import { useAuth } from '@/context/AuthContext';
 import { useFavorites } from '@/context/FavoritesContext';
@@ -20,7 +20,7 @@ export function AssetDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [offlineGlbUrl, setOfflineGlbUrl] = useState<string | null>(null);
   const [offlineUsdzUrl, setOfflineUsdzUrl] = useState<string | null>(null);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, logout } = useAuth();
   const { isFavorite, addFavorite, removeFavorite, getOfflineModelUrl } = useFavorites();
   const { showMessage } = useSnackbar();
 
@@ -49,8 +49,14 @@ export function AssetDetailPage() {
       })
       .catch((e) => {
         if (!cancelled) {
-          setError(e instanceof Error ? e.message : 'Asset nicht gefunden');
-          showMessage('Asset konnte nicht geladen werden.', 'error');
+          if (e instanceof AuthExpiredError) {
+            logout();
+            showMessage('Sitzung abgelaufen. Bitte erneut anmelden.', 'error');
+            setError(e.message);
+          } else {
+            setError(e instanceof Error ? e.message : 'Asset nicht gefunden');
+            showMessage('Asset konnte nicht geladen werden.', 'error');
+          }
         }
       })
       .finally(() => {
@@ -59,7 +65,7 @@ export function AssetDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [id, isAuthenticated, getOfflineModelUrl, showMessage]);
+  }, [id, isAuthenticated, getOfflineModelUrl, showMessage, logout]);
 
   useEffect(() => {
     return () => {

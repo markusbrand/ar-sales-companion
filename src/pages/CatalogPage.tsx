@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Grid, Box, CircularProgress, Typography, Alert } from '@mui/material';
-import { fetchAssetList } from '@/services/api';
+import { fetchAssetList, AuthExpiredError } from '@/services/api';
 import { AssetCard } from '@/components/AssetCard';
 import { useAuth } from '@/context/AuthContext';
 import { useSnackbar } from '@/context/SnackbarContext';
@@ -10,7 +10,7 @@ export function CatalogPage() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, logout } = useAuth();
   const { showMessage } = useSnackbar();
 
   useEffect(() => {
@@ -28,8 +28,14 @@ export function CatalogPage() {
       })
       .catch((e) => {
         if (!cancelled) {
-          setError(e instanceof Error ? e.message : 'Unbekannter Fehler');
-          showMessage('Katalog konnte nicht geladen werden.', 'error');
+          if (e instanceof AuthExpiredError) {
+            logout();
+            showMessage('Sitzung abgelaufen. Bitte erneut anmelden.', 'error');
+            setError(e.message);
+          } else {
+            setError(e instanceof Error ? e.message : 'Unbekannter Fehler');
+            showMessage('Katalog konnte nicht geladen werden.', 'error');
+          }
         }
       })
       .finally(() => {
@@ -38,7 +44,7 @@ export function CatalogPage() {
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, showMessage]);
+  }, [isAuthenticated, showMessage, logout]);
 
   if (!isAuthenticated) {
     return (

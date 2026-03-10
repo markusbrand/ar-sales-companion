@@ -4,9 +4,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.auth import exchange_code_for_token
-from app.bynder_client import get_asset, get_media_list, list_assets
-from app.models import AssetResponse, TokenRequest, TokenResponse
+from app.auth import exchange_code_for_token, refresh_access_token
+from app.bynder_client import BynderUnauthorizedError, get_asset, list_assets
+from app.models import AssetResponse, RefreshRequest, TokenRequest, TokenResponse
 
 logging.basicConfig(
     level=logging.INFO,
@@ -53,14 +53,32 @@ async def auth_token(body: TokenRequest):
     raise HTTPException(status_code=status, detail=detail)
 
 
+@app.post("/auth/refresh", response_model=TokenResponse)
+async def auth_refresh(body: RefreshRequest):
+    """Exchange refresh token for new access token. Use when API returns 401."""
+    token, err_status, err_detail = await refresh_access_token(body.refresh_token)
+    if token is not None:
+        return token
+    status = err_status or 401
+    detail = err_detail or "Refresh failed"
+    raise HTTPException(status_code=status, detail=detail)
+
+
 @app.get("/api/assets", response_model=list[AssetResponse])
 async def api_assets(authorization: str | None = Header(None, alias="Authorization")):
     """List assets from Bynder (catalog). Requires Bearer token from OAuth."""
     token = get_bearer_token(authorization)
     if not token:
         raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
-    assets = await list_assets(token)
-    return assets
+    try:
+        assets = await list_assets(token)
+        return assets
+    except BynderUnauthorizedError:
+        logger.info("API /api/assets: Bynder 401, token expired or invalid")
+        raise HTTPException(
+            status_code=401,
+            detail="Token expired or invalid. Please log in again.",
+        )
 
 
 @app.get("/api/assets/{asset_id}", response_model=AssetResponse)
@@ -69,7 +87,14 @@ async def api_asset(asset_id: str, authorization: str | None = Header(None, alia
     token = get_bearer_token(authorization)
     if not token:
         raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
-    asset = await get_asset(token, asset_id)
+    try:
+        asset = await get_asset(token, asset_id)
+    except BynderUnauthorizedError:
+        logger.info("API /api/assets/%s: Bynder 401, token expired or invalid", asset_id)
+        raise HTTPException(
+            status_code=401,
+            detail="Token expired or invalid. Please log in again.",
+        )
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
     return asset

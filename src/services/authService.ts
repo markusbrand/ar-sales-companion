@@ -1,4 +1,4 @@
-import { getApiBaseUrl } from '@/services/api';
+import { getApiBaseUrl } from '@/services/env';
 
 const CALLBACK_PATH = '/auth/callback';
 
@@ -119,6 +119,26 @@ export const authService = {
       return { ok: true };
     }
     return { ok: false, error: 'Kein Zugangstoken in der Antwort' };
+  },
+
+  /** Exchange refresh token for new access token. Returns true if new tokens were stored. */
+  async refreshToken(): Promise<boolean> {
+    const refresh = sessionStorage.getItem('bynder_refresh_token');
+    if (!refresh) return false;
+    const apiBase = getApiBaseUrl();
+    const res = await fetch(`${apiBase}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refresh }),
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    if (data.access_token) {
+      sessionStorage.setItem('bynder_access_token', data.access_token);
+      if (data.refresh_token) sessionStorage.setItem('bynder_refresh_token', data.refresh_token);
+      return true;
+    }
+    return false;
   },
 
   async logout(): Promise<void> {
