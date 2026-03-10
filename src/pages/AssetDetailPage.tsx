@@ -1,16 +1,32 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Box, Button, Typography, CircularProgress, Alert, IconButton } from '@mui/material';
+import { Box, Button, Typography, CircularProgress, Alert, IconButton, Link } from '@mui/material';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import ViewInArIcon from '@mui/icons-material/ViewInAr';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { fetchAsset, AuthExpiredError } from '@/services/api';
-import { ModelViewer } from '@/components/ModelViewer';
+import DownloadIcon from '@mui/icons-material/Download';
+import { fetchAsset, fetchModelUrl, AuthExpiredError } from '@/services/api';
+import { ModelViewer, type ModelViewerElement } from '@/components/ModelViewer';
 import { useAuth } from '@/context/AuthContext';
 import { useFavorites } from '@/context/FavoritesContext';
 import { useSnackbar } from '@/context/SnackbarContext';
 import type { Asset } from '@/types/asset';
+
+/** True if running on iPhone/iPad (including Safari). */
+function isIos(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent;
+  return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+/** True if on iOS and not Safari (e.g. Chrome). AR Quick Look often fails there. */
+function isIosNonSafari(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent;
+  const isSafari = /Safari/.test(ua) && !/Chrome|CriOS|FxiOS/.test(ua);
+  return isIos() && !isSafari;
+}
 
 export function AssetDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -20,9 +36,13 @@ export function AssetDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [offlineGlbUrl, setOfflineGlbUrl] = useState<string | null>(null);
   const [offlineUsdzUrl, setOfflineUsdzUrl] = useState<string | null>(null);
+  const [proxyModelUrl, setProxyModelUrl] = useState<string | null>(null);
   const { isAuthenticated, logout } = useAuth();
   const { isFavorite, addFavorite, removeFavorite, getOfflineModelUrl } = useFavorites();
   const { showMessage } = useSnackbar();
+  const modelViewerRef = useRef<ModelViewerElement>(null);
+  const showIosSafariHint = useMemo(() => isIosNonSafari(), []);
+  const showIosHint = useMemo(() => isIos(), []);
 
   useEffect(() => {
     if (!id || !isAuthenticated) {
@@ -66,6 +86,19 @@ export function AssetDetailPage() {
       cancelled = true;
     };
   }, [id, isAuthenticated, getOfflineModelUrl, showMessage, logout]);
+
+  useEffect(() => {
+    if (!id || !asset) return;
+    let cancelled = false;
+    fetchModelUrl(id)
+      .then((url) => {
+        if (!cancelled && url) setProxyModelUrl(url);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [id, asset]);
 
   useEffect(() => {
     return () => {
@@ -123,29 +156,65 @@ export function AssetDetailPage() {
 
       <Box sx={{ bgcolor: 'grey.100', borderRadius: 2, overflow: 'hidden', minHeight: 320 }}>
         <ModelViewer
+          ref={modelViewerRef}
           glbUrl={asset.glbUrl}
           usdzUrl={asset.usdzUrl}
           posterUrl={asset.posterUrl}
           alt={asset.name}
           offlineGlbUrl={offlineGlbUrl}
           offlineUsdzUrl={offlineUsdzUrl}
+          proxyGlbUrl={proxyModelUrl}
         />
       </Box>
 
-      <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+      <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
         <Button
           variant="contained"
           size="large"
           startIcon={<ViewInArIcon />}
-          onClick={() => {
-            const mv = document.querySelector('model-viewer');
-            if (mv && (mv as unknown as { activateAR?: () => void }).activateAR) {
-              (mv as unknown as { activateAR: () => void }).activateAR();
+          onClick={async () => {
+            const mv = modelViewerRef.current;
+            if (!mv?.activateAR) {
+              showMessage('AR wird auf diesem Gerät nicht unterstützt.', 'warning');
+              return;
+            }
+            try {
+              const result = mv.activateAR();
+              if (result && typeof result.then === 'function') {
+                await result;
+              }
+            } catch {
+              showMessage(
+                'AR konnte nicht gestartet werden. Auf dem iPhone bitte Safari verwenden – in Chrome tritt oft ein Fehler auf.',
+                'error'
+              );
             }
           }}
         >
           In AR anzeigen
         </Button>
+        {showIosHint && (
+          <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', maxWidth: 360 }}>
+            Auf dem iPhone kann AR (Quick Look) bei iOS 17+ oft nicht geöffnet werden. Sie können das Modell als GLB herunterladen und in einer anderen App ansehen.
+          </Typography>
+        )}
+        {showIosSafariHint && (
+          <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', maxWidth: 320 }}>
+            Tipp: AR funktioniert auf dem iPhone am ehesten in Safari. In Chrome erscheint oft „Objekt konnte nicht geöffnet werden“.
+          </Typography>
+        )}
+        {proxyModelUrl && (
+          <Link
+            href={proxyModelUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            download="model.glb"
+            sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}
+          >
+            <DownloadIcon fontSize="small" />
+            Modell als GLB herunterladen
+          </Link>
+        )}
       </Box>
     </Box>
   );

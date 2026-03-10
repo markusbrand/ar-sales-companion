@@ -69,3 +69,16 @@ export async function fetchThumbnailBlobUrl(assetId: string): Promise<string | n
   const blob = await res.blob();
   return URL.createObjectURL(blob);
 }
+
+/**
+ * Get a short-lived same-origin URL for the model (for AR / Quick Look). Returns null if backend does not support it (503).
+ */
+export async function fetchModelUrl(assetId: string): Promise<string | null> {
+  const base = getBaseUrl();
+  const url = `${base}/api/assets/${encodeURIComponent(assetId)}/model-url`;
+  const res = await fetchWithAuthRetry(url, { headers: getAuthHeaders() });
+  if (res.status === 503) return null;
+  if (!res.ok) return null;
+  const data = (await res.json()) as { url?: string };
+  return data.url ?? null;
+}

@@ -209,6 +209,23 @@ async def get_download_url(access_token: str, media_id: str) -> str | None:
     return None
 
 
+async def get_model_bytes(access_token: str, media_id: str) -> bytes | None:
+    """Fetch GLB model bytes by getting download URL and streaming the response. Returns None on failure."""
+    download_url = await get_download_url(access_token, media_id)
+    if not download_url:
+        return None
+    try:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            resp = await client.get(download_url, timeout=60.0)
+            if resp.status_code != 200:
+                logger.warning("Model stream failed: id=%s status=%s", media_id, resp.status_code)
+                return None
+            return resp.content
+    except Exception as e:
+        logger.exception("Model stream error for %s: %s", media_id, e)
+        return None
+
+
 async def get_thumbnail_bytes(access_token: str, media_id: str) -> tuple[bytes, str] | None:
     """Fetch thumbnail image for media item; returns (body, content_type) or None. Proxies with Bearer so Bynder accepts."""
     item = await get_media_by_id(access_token, media_id)

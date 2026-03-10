@@ -1,12 +1,23 @@
+import hashlib
+import hmac
 import logging
+import time
+from base64 import urlsafe_b64decode, urlsafe_b64encode
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 
 from app.auth import exchange_code_for_token, refresh_access_token
-from app.bynder_client import BynderUnauthorizedError, get_asset, get_thumbnail_bytes, list_assets
+from app.bynder_client import (
+    BynderUnauthorizedError,
+    get_asset,
+    get_model_bytes,
+    get_thumbnail_bytes,
+    list_assets,
+)
+from app.config import MODEL_URL_SECRET
 from app.models import AssetResponse, RefreshRequest, TokenRequest, TokenResponse
 
 logging.basicConfig(
@@ -101,20 +112,136 @@ async def api_asset(asset_id: str, authorization: str | None = Header(None, alia
     return asset
 
 
-@app.get("/api/assets/{asset_id}/thumbnail")
-async def api_asset_thumbnail(asset_id: str, authorization: str | None = Header(None, alias="Authorization")):
-    """Proxy Bynder thumbnail (requires auth); use this so <img> can show thumbnails that need Bearer."""
+def _model_token_create(asset_id: str, ttl_seconds: int = 900) -> str:
+    """Create a signed token for model URL (valid for ttl_seconds). Requires MODEL_URL_SECRET."""
+    if not MODEL_URL_SECRET:
+        raise ValueError("MODEL_URL_SECRET is not set")
+    expiry = int(time.time()) + ttl_seconds
+    payload = f"{asset_id}:{expiry}"
+    sig = hmac.new(
+        MODEL_URL_SECRET.encode("utf-8"),
+        payload.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    return urlsafe_b64encode(payload.encode("utf-8")).decode("ascii").rstrip("=") + "." + sig
+
+
+def _model_token_verify(token: str) -> str | None:
+    """Verify token and return asset_id if valid, else None."""
+    if not MODEL_URL_SECRET or "." not in token:
+        return None
+    payload_b64, sig = token.rsplit(".", 1)
+    try:
+        payload = urlsafe_b64decode(payload_b64 + "==").decode("utf-8")
+    except Exception:
+        return None
+    expected_sig = hmac.new(
+        MODEL_URL_SECRET.encode("utf-8"),
+        payload.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    if not hmac.compare_digest(expected_sig, sig):
+        return None
+    parts = payload.split(":")
+    if len(parts) != 2:
+        return None
+    asset_id, expiry_str = parts
+    try:
+        if int(expiry_str) < int(time.time()):
+            return None
+    except ValueError:
+        return None
+    return asset_id
+
+
+# In-memory cache for token -> model bytes (short-lived) so ?token= requests can stream without Bearer.
+_model_cache: dict[str, tuple[bytes, int]] = {}
+_MODEL_CACHE_TTL = 900  # 15 minutes
+
+
+def _model_cache_cleanup():
+    """Remove expired entries from _model_cache."""
+    now = int(time.time())
+    expired = [k for k, (_, exp) in _model_cache.items() if exp < now]
+    for k in expired:
+        del _model_cache[k]
+
+
+@app.get("/api/assets/{asset_id}/model")
+async def api_asset_model(
+    asset_id: str,
+    authorization: str | None = Header(None, alias="Authorization"),
+    token: str | None = Query(None, alias="token"),
+):
+    """Stream GLB model file. Auth: Bearer header or ?token= (short-lived signed URL for same-origin / Quick Look)."""
+    if token:
+        verified_id = _model_token_verify(token)
+        if not verified_id or verified_id != asset_id:
+            logger.warning("Model token invalid or expired for asset_id=%s", asset_id)
+            raise HTTPException(status_code=401, detail="Invalid or expired model URL token")
+        _model_cache_cleanup()
+        cached = _model_cache.get(token)
+        if not cached:
+            raise HTTPException(
+                status_code=410,
+                detail="Model URL expired; please reopen the asset and try AR again.",
+            )
+        body, _ = cached
+        return Response(
+            content=body,
+            media_type="model/gltf-binary",
+            headers={
+                "Content-Disposition": 'attachment; filename="model.glb"',
+                "Cache-Control": "private, max-age=60",
+            },
+        )
+    access_token = get_bearer_token(authorization)
+    if not access_token:
+        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+    try:
+        body = await get_model_bytes(access_token, asset_id)
+    except BynderUnauthorizedError:
+        raise HTTPException(status_code=401, detail="Token expired or invalid. Please log in again.")
+    if not body:
+        raise HTTPException(status_code=404, detail="Model not found or could not be streamed")
+    return Response(
+        content=body,
+        media_type="model/gltf-binary",
+        headers={
+            "Content-Disposition": 'attachment; filename="model.glb"',
+            "Cache-Control": "private, max-age=300",
+        },
+    )
+
+
+@app.get("/api/assets/{asset_id}/model-url")
+async def api_asset_model_url(
+    asset_id: str,
+    request: Request,
+    authorization: str | None = Header(None, alias="Authorization"),
+):
+    """Return a short-lived URL to stream the model (for same-origin / AR). Requires Bearer. Requires MODEL_URL_SECRET."""
+    if not MODEL_URL_SECRET:
+        logger.warning("Model URL requested but MODEL_URL_SECRET is not set")
+        raise HTTPException(
+            status_code=503,
+            detail="Model URL feature is not configured (MODEL_URL_SECRET).",
+        )
     token = get_bearer_token(authorization)
     if not token:
         raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
     try:
-        result = await get_thumbnail_bytes(token, asset_id)
+        body = await get_model_bytes(token, asset_id)
     except BynderUnauthorizedError:
         raise HTTPException(status_code=401, detail="Token expired or invalid. Please log in again.")
-    if not result:
-        raise HTTPException(status_code=404, detail="Thumbnail not found")
-    body, content_type = result
-    return Response(content=body, media_type=content_type)
+    if not body:
+        raise HTTPException(status_code=404, detail="Model not found or could not be streamed")
+    signed = _model_token_create(asset_id, ttl_seconds=_MODEL_CACHE_TTL)
+    _model_cache_cleanup()
+    _model_cache[signed] = (body, int(time.time()) + _MODEL_CACHE_TTL)
+    base = str(request.base_url).rstrip("/")
+    model_url = f"{base}/api/assets/{asset_id}/model?token={signed}"
+    return {"url": model_url}
 
 
 @app.get("/health")

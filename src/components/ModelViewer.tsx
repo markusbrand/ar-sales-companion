@@ -1,4 +1,5 @@
 import type React from 'react';
+import { forwardRef } from 'react';
 
 export interface ModelViewerProps {
   glbUrl: string;
@@ -9,26 +10,39 @@ export interface ModelViewerProps {
   offlineGlbUrl?: string | null;
   /** Prefer offline blob URL for USDZ (from IndexedDB). */
   offlineUsdzUrl?: string | null;
+  /** Same-origin proxy URL for GLB (for AR / Quick Look when backend supports it). */
+  proxyGlbUrl?: string | null;
   onLoad?: () => void;
   onError?: (e: Event) => void;
 }
 
-export function ModelViewer({
-  glbUrl,
-  usdzUrl,
-  posterUrl,
-  alt = '3D model',
-  offlineGlbUrl,
-  offlineUsdzUrl,
-  onLoad,
-  onError,
-}: ModelViewerProps) {
-  const src = offlineGlbUrl || glbUrl;
+/** Model-viewer element type for ref (activateAR, canActivateAR). */
+export type ModelViewerElement = HTMLElement & {
+  activateAR?: () => Promise<void>;
+  canActivateAR?: boolean;
+};
+
+export const ModelViewer = forwardRef<ModelViewerElement, ModelViewerProps>(function ModelViewer(
+  {
+    glbUrl,
+    usdzUrl,
+    posterUrl,
+    alt = '3D model',
+    offlineGlbUrl,
+    offlineUsdzUrl,
+    proxyGlbUrl,
+    onLoad,
+    onError,
+  },
+  ref
+) {
+  const src = offlineGlbUrl || proxyGlbUrl || glbUrl;
   const iosSrc = offlineUsdzUrl || usdzUrl || undefined;
   const poster = posterUrl || undefined;
 
   return (
     <model-viewer
+      ref={ref}
       src={src}
       ios-src={iosSrc}
       poster={poster}
@@ -44,4 +58,4 @@ export function ModelViewer({
       style={{ width: '100%', height: '100%', minHeight: 320 }}
     />
   );
-}
+});

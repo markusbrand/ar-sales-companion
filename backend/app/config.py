@@ -24,3 +24,6 @@ BYNDER_FILTER_GLB_ONLY = os.getenv("BYNDER_FILTER_GLB_ONLY", "").strip().lower()
 
 # Nur Assets anzeigen, die einen bestimmten Tag haben (z. B. "AR" für GLB-Dateien). Leer = kein Tag-Filter.
 BYNDER_FILTER_TAG = (os.getenv("BYNDER_FILTER_TAG", "").strip() or None)
+
+# Secret to sign short-lived model URLs (so Quick Look / model-viewer can load GLB without Bearer). Required for token-based /model.
+MODEL_URL_SECRET = (os.getenv("MODEL_URL_SECRET", "").strip() or None)
