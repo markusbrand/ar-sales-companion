@@ -209,6 +209,27 @@ async def get_download_url(access_token: str, media_id: str) -> str | None:
     return None
 
 
+async def get_thumbnail_bytes(access_token: str, media_id: str) -> tuple[bytes, str] | None:
+    """Fetch thumbnail image for media item; returns (body, content_type) or None. Proxies with Bearer so Bynder accepts."""
+    item = await get_media_by_id(access_token, media_id)
+    if not item:
+        return None
+    thumb_url = _thumbnail_url(item)
+    if not thumb_url or not thumb_url.startswith("http"):
+        return None
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(thumb_url, headers=_headers(access_token), timeout=10.0)
+            if resp.status_code != 200:
+                logger.debug("Thumbnail fetch failed: id=%s status=%s", media_id, resp.status_code)
+                return None
+            content_type = resp.headers.get("content-type", "image/jpeg")
+            return (resp.content, content_type)
+    except Exception as e:
+        logger.warning("Thumbnail fetch error for %s: %s", media_id, e)
+        return None
+
+
 def _thumbnail_url(item: dict) -> str:
     """Extract best thumbnail from Bynder media item."""
     thumbs = item.get("thumbnails") or item.get("thumbnail") or {}

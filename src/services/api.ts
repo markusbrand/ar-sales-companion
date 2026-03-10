@@ -59,3 +59,13 @@ export async function fetchAsset(id: string): Promise<Asset> {
   }
   return res.json();
 }
+
+/** Fetch thumbnail via backend proxy (auth required); returns object URL or null. Caller must revoke the URL when done. */
+export async function fetchThumbnailBlobUrl(assetId: string): Promise<string | null> {
+  const base = getBaseUrl();
+  const url = `${base}/api/assets/${encodeURIComponent(assetId)}/thumbnail`;
+  const res = await fetch(url, { headers: getAuthHeaders() });
+  if (!res.ok) return null;
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
+}

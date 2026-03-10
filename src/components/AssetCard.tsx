@@ -1,9 +1,10 @@
 import { useNavigate } from 'react-router-dom';
-import { Card, CardMedia, CardContent, CardActionArea, Typography, Box } from '@mui/material';
+import { Card, CardContent, CardActionArea, Typography, Box } from '@mui/material';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import type { Asset } from '@/types/asset';
 import { useFavorites } from '@/context/FavoritesContext';
+import { ThumbnailImage } from '@/components/ThumbnailImage';
 
 interface AssetCardProps {
   asset: Asset;
@@ -24,13 +25,11 @@ export function AssetCard({ asset }: AssetCardProps) {
   return (
     <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <CardActionArea onClick={() => navigate(`/asset/${asset.id}`)} sx={{ flex: 1 }}>
-        <CardMedia
-          component="img"
-          height="160"
-          image={asset.thumbnailUrl}
+        <ThumbnailImage
+          assetId={asset.id}
           alt={asset.name}
-          loading="lazy"
-          sx={{ objectFit: 'contain', bgcolor: 'grey.100' }}
+          height={160}
+          fallbackUrl={asset.thumbnailUrl}
         />
         <CardContent sx={{ flex: 1 }}>
           <Typography variant="subtitle1" fontWeight={600} noWrap>

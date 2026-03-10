@@ -3,9 +3,10 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 
 from app.auth import exchange_code_for_token, refresh_access_token
-from app.bynder_client import BynderUnauthorizedError, get_asset, list_assets
+from app.bynder_client import BynderUnauthorizedError, get_asset, get_thumbnail_bytes, list_assets
 from app.models import AssetResponse, RefreshRequest, TokenRequest, TokenResponse
 
 logging.basicConfig(
@@ -98,6 +99,22 @@ async def api_asset(asset_id: str, authorization: str | None = Header(None, alia
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
     return asset
+
+
+@app.get("/api/assets/{asset_id}/thumbnail")
+async def api_asset_thumbnail(asset_id: str, authorization: str | None = Header(None, alias="Authorization")):
+    """Proxy Bynder thumbnail (requires auth); use this so <img> can show thumbnails that need Bearer."""
+    token = get_bearer_token(authorization)
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+    try:
+        result = await get_thumbnail_bytes(token, asset_id)
+    except BynderUnauthorizedError:
+        raise HTTPException(status_code=401, detail="Token expired or invalid. Please log in again.")
+    if not result:
+        raise HTTPException(status_code=404, detail="Thumbnail not found")
+    body, content_type = result
+    return Response(content=body, media_type=content_type)
 
 
 @app.get("/health")
