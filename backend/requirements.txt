@@ -1,4 +1,5 @@
 fastapi>=0.115.0
-uvicorn[standard]>=0.32.0
+# Plain uvicorn (no [standard]) so arm/v7 builds without gcc; httptools/uvloop need C compilation
+uvicorn>=0.32.0
 httpx>=0.27.0
 python-dotenv>=1.0.0

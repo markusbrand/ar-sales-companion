@@ -7,6 +7,7 @@ WORKDIR /app
 RUN adduser --disabled-password --gecos "" appuser
 
 COPY requirements.txt .
+ENV PIP_ROOT_USER_ACTION=ignore
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/ ./app/
