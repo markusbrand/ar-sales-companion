@@ -36,5 +36,5 @@ echo "Pulling backend image and starting services..."
 $COMPOSE pull backend
 $COMPOSE up -d --build
 
-echo "Done. App should be available at http://$(hostname -I | awk '{print $1}') (port 80)"
+echo "Done. App should be available at http://$(hostname -I | awk '{print $1}'):8888"
 echo "Logs: $COMPOSE logs -f"

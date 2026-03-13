@@ -91,7 +91,7 @@ docker compose up -d
 
 Beim ersten Lauf wird das **Frontend-Image** aus dem Projekt gebaut (einige Minuten). Das **Backend** wird von GHCR gezogen.
 
-- **App im Browser:** `http://DEINE-PI-IP` (Port 80)
+- **App im Browser:** `http://DEINE-PI-IP:8888` (Standard-Port 8888; in `docker-compose.yml` auf `80:80` ändern für Port 80)
 - Das Frontend-Container-Nginx leitet `/api` und `/auth` an das Backend weiter.
 
 Logs ansehen:
@@ -111,7 +111,7 @@ docker compose logs -f
 | Compose + .env | `cp docker-compose.example.yml docker-compose.yml` und `.env` anlegen |
 | GHCR-Login | `echo TOKEN \| docker login ghcr.io -u markusbrand --password-stdin` |
 | Start | `./scripts/deploy-pi.sh` oder `docker compose up -d` |
-| App aufrufen | `http://DEINE-PI-IP` (Pi-IP mit `hostname -I`) |
+| App aufrufen | `http://DEINE-PI-IP:8888` (Pi-IP mit `hostname -I`) |
 
 ---
 
