@@ -57,12 +57,24 @@ app.add_middleware(
 @app.post("/auth/token", response_model=TokenResponse)
 async def auth_token(body: TokenRequest):
     """Exchange Bynder OAuth authorization code for access token."""
-    token, err_status, err_detail = await exchange_code_for_token(body.code, body.redirect_uri)
-    if token is not None:
-        return token
-    status = err_status or 502
-    detail = err_detail or "Token exchange failed"
-    raise HTTPException(status_code=status, detail=detail)
+    try:
+        token, err_status, err_detail = await exchange_code_for_token(body.code, body.redirect_uri)
+        if token is not None:
+            return token
+        status = err_status or 502
+        detail = err_detail or "Token exchange failed"
+        raise HTTPException(status_code=status, detail=detail)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Unexpected error in /auth/token: %s", e)
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Serverfehler beim Token-Austausch. Bitte Backend-Logs prüfen. "
+                "Häufige Ursachen: Client Secret falsch oder Redirect URI stimmt nicht mit Bynder überein."
+            ),
+        ) from e
 
 
 @app.post("/auth/refresh", response_model=TokenResponse)
