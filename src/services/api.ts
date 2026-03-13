@@ -91,7 +91,7 @@ export async function fetchModelBlob(assetId: string): Promise<Blob> {
   const url = `${base}/api/assets/${encodeURIComponent(assetId)}/model`;
   const res = await fetchWithAuthRetry(url, { headers: getAuthHeaders() });
   if (!res.ok) {
-    const text = await res.text();
+    await res.text(); // consume body
     throw new Error(res.status === 404 ? 'Modell nicht gefunden.' : `Download fehlgeschlagen: ${res.status}`);
   }
   return res.blob();

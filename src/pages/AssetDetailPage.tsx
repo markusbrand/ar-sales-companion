@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Box, Button, Typography, CircularProgress, Alert, IconButton } from '@mui/material';
+
+const isSecureContext = typeof window !== 'undefined' && window.isSecureContext;
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import ViewInArIcon from '@mui/icons-material/ViewInAr';
@@ -142,6 +144,11 @@ export function AssetDetailPage() {
 
   return (
     <Box>
+      {!isSecureContext && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          AR funktioniert nur über HTTPS oder localhost. Aktuell keine sichere Verbindung.
+        </Alert>
+      )}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
         <IconButton onClick={() => navigate(-1)} aria-label="Zurück">
           <ArrowBackIcon />
@@ -178,12 +185,26 @@ export function AssetDetailPage() {
               showMessage('AR wird auf diesem Gerät nicht unterstützt.', 'warning');
               return;
             }
+            if (mv.canActivateAR === false) {
+              showMessage('AR wird auf diesem Gerät/Browser nicht angeboten.', 'warning');
+              return;
+            }
+            if (typeof console?.debug === 'function') {
+              console.debug('[AR] activateAR requested', {
+                isSecureContext: window.isSecureContext,
+                canActivateAR: mv.canActivateAR,
+                userAgent: navigator.userAgent?.slice(0, 80),
+              });
+            }
             try {
               const result = mv.activateAR();
               if (result && typeof result.then === 'function') {
                 await result;
               }
-            } catch {
+            } catch (err) {
+              if (typeof console?.error === 'function') {
+                console.error('[AR] activateAR failed', err);
+              }
               showMessage(
                 'AR konnte nicht gestartet werden. Auf dem iPhone bitte Safari verwenden – in Chrome tritt oft ein Fehler auf.',
                 'error'

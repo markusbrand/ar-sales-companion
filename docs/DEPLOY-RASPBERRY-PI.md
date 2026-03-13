@@ -49,9 +49,18 @@ OAUTH_CALLBACK_URL=http://DEINE-PI-IP/auth/callback
 
 # Optional: nur Assets mit Tag „AR“ anzeigen (für GLB/AR-Katalog)
 # BYNDER_FILTER_TAG=AR
+
+# AR auf dem iPhone / hinter Reverse-Proxy (z. B. Cloudflare):
+# Öffentliche HTTPS-URL, unter der Nutzer die App aufrufen (ohne trailing slash).
+# Wenn die App z. B. über https://arcompanion.example.com erreichbar ist, hier eintragen.
+# Das Backend nutzt diese URL für Modell-URLs, damit sie same-origin und auf dem iPhone ladbar sind.
+# PUBLIC_BASE_URL=https://arcompanion.example.com
+
+# Geheimnis für kurzfristige Modell-URLs (erforderlich, damit die App Proxy-Modell-URLs erhält).
+# MODEL_URL_SECRET=ein-geheimes-zufalls-string
 ```
 
-In Bynder muss unter der OAuth-App als Redirect URI genau `OAUTH_CALLBACK_URL` eingetragen sein (z. B. `http://192.168.1.10/auth/callback`).
+In Bynder muss unter der OAuth-App als Redirect URI genau `OAUTH_CALLBACK_URL` eingetragen sein (z. B. `http://192.168.1.10/auth/callback` oder `https://arcompanion.example.com/auth/callback` bei HTTPS).
 
 ---
 
@@ -136,3 +145,23 @@ Wenn du das Frontend nicht im Container laufen lassen willst:
 2. **Frontend** auf dem PC bauen (`npm run build`), `dist/` auf den Pi kopieren und mit nginx (oder einem anderen Webserver) unter derselben URL ausliefern, die du für `OAUTH_CALLBACK_URL` nutzt. Nginx muss `/api` und `/auth` an `http://127.0.0.1:8888` proxien.
 
 Details für eine manuelle nginx-Konfiguration findest du in der Git-Historie dieser Datei oder in der Backend-README.
+
+---
+
+## AR auf dem iPhone / hinter Cloudflare (HTTPS)
+
+Damit „In AR anzeigen“ auf dem iPhone funktioniert:
+
+1. **HTTPS (sichere Verbindung):** Die App muss über HTTPS erreichbar sein. Bei Zugriff nur über `http://DEINE-PI-IP` ist AR in der Regel blockiert. Mit einem Reverse-Proxy wie **Cloudflare** (z. B. `https://arcompanion.brandstaetter.rocks` → `http://192.168.0.150:8888`) ist die sichere Verbindung gegeben.
+
+2. **PUBLIC_BASE_URL:** Setze im Backend die **öffentliche** URL, unter der Nutzer die App im Browser öffnen – also die HTTPS-URL, nicht die interne Pi-Adresse. Beispiel:
+   ```env
+   PUBLIC_BASE_URL=https://arcompanion.brandstaetter.rocks
+   ```
+   Ohne diese Variable nutzt das Backend die interne Basis-URL; die ausgelieferten Modell-URLs wären dann z. B. `http://192.168.0.150:8888/...` und auf dem iPhone oft nicht ladbar (cross-origin).
+
+3. **MODEL_URL_SECRET:** Muss gesetzt sein, damit die App Proxy-Modell-URLs vom Backend erhält (zufälliger geheimer String).
+
+4. **OAuth / Callback:** `VITE_OAUTH_CALLBACK_URL` und die Bynder Redirect URI müssen die gleiche öffentliche HTTPS-URL verwenden (z. B. `https://arcompanion.brandstaetter.rocks` und `https://arcompanion.brandstaetter.rocks/auth/callback`).
+
+**AR testen ohne Bynder:** In der App unter „AR testen“ (Navigation) kannst du eine eigene .glb-Datei hochladen und AR unabhängig von Bynder prüfen.

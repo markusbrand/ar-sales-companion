@@ -2,6 +2,7 @@ import { type ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AppBar, Toolbar, Typography, Button, Box, CircularProgress } from '@mui/material';
 import FavoriteIcon from '@mui/icons-material/Favorite';
+import ViewInArIcon from '@mui/icons-material/ViewInAr';
 import ViewListIcon from '@mui/icons-material/ViewList';
 import LoginIcon from '@mui/icons-material/Login';
 import LogoutIcon from '@mui/icons-material/Logout';
@@ -30,6 +31,9 @@ export function Layout({ children }: { children: ReactNode }) {
           </Button>
           <Button type="button" color="inherit" startIcon={<FavoriteIcon />} onClick={() => navigate('/favorites')} sx={{ opacity: location.pathname === '/favorites' ? 1 : 0.8 }}>
             Favoriten
+          </Button>
+          <Button type="button" color="inherit" startIcon={<ViewInArIcon />} onClick={() => navigate('/ar-test')} sx={{ opacity: location.pathname === '/ar-test' ? 1 : 0.8 }}>
+            AR testen
           </Button>
           {isLoading ? (
             <CircularProgress size={24} color="inherit" sx={{ ml: 1 }} />
