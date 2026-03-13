@@ -25,10 +25,15 @@ if (typeof window !== 'undefined' && import.meta.env.DEV) {
   });
 }
 
+/** Returns the OAuth redirect_uri for the callback. Prefer current origin when it's not localhost so production works even if the build had a dev callback URL. */
 function getCallbackUrl(): string {
-  const base = import.meta.env.VITE_OAUTH_CALLBACK_URL;
-  if (base) return base.replace(/\/$/, '') + CALLBACK_PATH;
-  return `${window.location.origin}${CALLBACK_PATH}`;
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const isLocalhost = /^https?:\/\/localhost(:\d+)?$/i.test(origin) || /^https?:\/\/127\.0\.0\.1(:\d+)?$/i.test(origin);
+  const baked = (import.meta.env.VITE_OAUTH_CALLBACK_URL as string)?.trim().replace(/\/$/, '') || '';
+  const bakedIsLocalhost = /^https?:\/\/localhost(:\d+)?$/i.test(baked) || /^https?:\/\/127\.0\.0\.1(:\d+)?$/i.test(baked);
+  if (baked && (!bakedIsLocalhost || isLocalhost)) return baked + CALLBACK_PATH;
+  if (origin) return origin + CALLBACK_PATH;
+  return baked ? baked + CALLBACK_PATH : '';
 }
 
 function getBynderBase(): string {
