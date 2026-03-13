@@ -11,6 +11,16 @@ if ! command -v docker &>/dev/null; then
   exit 1
 fi
 
+# Prefer "docker compose" (v2), fall back to "docker-compose" (v1)
+if docker compose version &>/dev/null; then
+  COMPOSE="docker compose"
+elif command -v docker-compose &>/dev/null; then
+  COMPOSE="docker-compose"
+else
+  echo "Docker Compose not found. Install the plugin or docker-compose."
+  exit 1
+fi
+
 if [ ! -f docker-compose.yml ]; then
   echo "Creating docker-compose.yml from docker-compose.example.yml"
   cp docker-compose.example.yml docker-compose.yml
@@ -23,8 +33,8 @@ if [ ! -f .env ]; then
 fi
 
 echo "Pulling backend image and starting services..."
-docker compose pull backend
-docker compose up -d --build
+$COMPOSE pull backend
+$COMPOSE up -d --build
 
 echo "Done. App should be available at http://$(hostname -I | awk '{print $1}') (port 80)"
-echo "Logs: docker compose logs -f"
+echo "Logs: $COMPOSE logs -f"
