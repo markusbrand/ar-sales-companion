@@ -30,7 +30,7 @@ export default defineConfig({
         name: 'AR Sales Companion',
         short_name: 'AR Sales',
         description: 'Place 3D models from Bynder in AR',
-        theme_color: '#1976d2',
+        theme_color: '#6750A4',
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait-primary',

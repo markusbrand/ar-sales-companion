@@ -1,5 +1,12 @@
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardActionArea, Typography, Box } from '@mui/material';
+import {
+  Card,
+  CardContent,
+  CardActionArea,
+  Typography,
+  Box,
+  IconButton,
+} from '@mui/material';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import type { Asset } from '@/types/asset';
@@ -37,21 +44,16 @@ export function AssetCard({ asset }: AssetCardProps) {
           </Typography>
         </CardContent>
       </CardActionArea>
-      <Box sx={{ p: 0.5, display: 'flex', justifyContent: 'flex-end' }}>
-        <Box
-          component="button"
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <IconButton
+          size="small"
           onClick={handleFavClick}
-          sx={{
-            border: 'none',
-            background: 'none',
-            cursor: 'pointer',
-            color: fav ? 'primary.main' : 'grey.500',
-            p: 0.5,
-          }}
+          color={fav ? 'primary' : 'default'}
           aria-label={fav ? 'Aus Favoriten entfernen' : 'Zu Favoriten hinzufügen'}
+          sx={{ color: fav ? 'primary.main' : 'action.active' }}
         >
           {fav ? <FavoriteIcon /> : <FavoriteBorderIcon />}
-        </Box>
+        </IconButton>
       </Box>
     </Card>
   );

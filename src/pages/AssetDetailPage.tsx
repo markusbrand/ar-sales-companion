@@ -1,12 +1,11 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { Box, Button, Typography, CircularProgress, Alert, IconButton } from '@mui/material';
 
 const isSecureContext = typeof window !== 'undefined' && window.isSecureContext;
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import ViewInArIcon from '@mui/icons-material/ViewInAr';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DownloadIcon from '@mui/icons-material/Download';
 import { fetchAsset, fetchModelUrl, fetchModelBlob, AuthExpiredError } from '@/services/api';
 import { ModelViewer, type ModelViewerElement } from '@/components/ModelViewer';
@@ -32,7 +31,6 @@ function isIosNonSafari(): boolean {
 
 export function AssetDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const [asset, setAsset] = useState<Asset | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -120,25 +118,60 @@ export function AssetDetailPage() {
 
   if (!isAuthenticated) {
     return (
-      <Box sx={{ textAlign: 'center', py: 4 }}>
-        <Typography color="text.secondary">Bitte anmelden.</Typography>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '40vh',
+          textAlign: 'center',
+          px: 2,
+        }}
+      >
+        <Typography color="text.secondary" variant="body1">
+          Bitte anmelden.
+        </Typography>
       </Box>
     );
   }
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-        <CircularProgress />
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '40vh',
+        }}
+      >
+        <CircularProgress aria-label="Asset wird geladen" />
+        <Typography color="text.secondary" variant="body2" sx={{ mt: 2 }}>
+          Asset wird geladen…
+        </Typography>
       </Box>
     );
   }
 
   if (error || !asset) {
     return (
-      <Alert severity="error" sx={{ mt: 2 }}>
-        {error || 'Asset nicht gefunden'}
-      </Alert>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '40vh',
+          textAlign: 'center',
+          px: 2,
+        }}
+      >
+        <Alert severity="error" sx={{ width: '100%', maxWidth: 360 }}>
+          {error || 'Asset nicht gefunden'}
+        </Alert>
+      </Box>
     );
   }
 
@@ -149,19 +182,27 @@ export function AssetDetailPage() {
           AR funktioniert nur über HTTPS oder localhost. Aktuell keine sichere Verbindung.
         </Alert>
       )}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <IconButton onClick={() => navigate(-1)} aria-label="Zurück">
-          <ArrowBackIcon />
-        </IconButton>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, minHeight: 48 }}>
         <Typography variant="h6" sx={{ flex: 1 }}>
           {asset.name}
         </Typography>
-        <IconButton onClick={handleFav} color={fav ? 'primary' : 'default'} aria-label={fav ? 'Aus Favoriten entfernen' : 'Zu Favoriten hinzufügen'}>
+        <IconButton
+          onClick={handleFav}
+          color={fav ? 'primary' : 'default'}
+          aria-label={fav ? 'Aus Favoriten entfernen' : 'Zu Favoriten hinzufügen'}
+        >
           {fav ? <FavoriteIcon /> : <FavoriteBorderIcon />}
         </IconButton>
       </Box>
 
-      <Box sx={{ bgcolor: 'grey.100', borderRadius: 2, overflow: 'hidden', minHeight: 320 }}>
+      <Box
+        sx={{
+          bgcolor: 'grey.100',
+          borderRadius: 2,
+          overflow: 'hidden',
+          minHeight: { xs: 280, sm: 320 },
+        }}
+      >
         <ModelViewer
           ref={modelViewerRef}
           glbUrl={asset.glbUrl}
@@ -174,11 +215,20 @@ export function AssetDetailPage() {
         />
       </Box>
 
-      <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+      <Box
+        sx={{
+          mt: 2,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'stretch',
+          gap: 1.5,
+        }}
+      >
         <Button
           variant="contained"
           size="large"
           startIcon={<ViewInArIcon />}
+          sx={{ minHeight: 48 }}
           onClick={async () => {
             const mv = modelViewerRef.current;
             if (!mv?.activateAR) {
@@ -226,8 +276,9 @@ export function AssetDetailPage() {
         )}
         <Button
           variant="outlined"
-          size="small"
+          size="medium"
           startIcon={<DownloadIcon />}
+          sx={{ minHeight: 48 }}
           onClick={async () => {
             if (!asset) return;
             try {
@@ -243,7 +294,6 @@ export function AssetDetailPage() {
               showMessage(e instanceof Error ? e.message : 'Download fehlgeschlagen.', 'error');
             }
           }}
-          sx={{ mt: 0.5 }}
         >
           Modell als GLB herunterladen
         </Button>

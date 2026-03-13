@@ -25,7 +25,15 @@ export function SnackbarProvider({ children }: { children: ReactNode }) {
   return (
     <SnackbarContext.Provider value={{ showMessage }}>
       {children}
-      <Snackbar open={open} autoHideDuration={6000} onClose={handleClose} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+      <Snackbar
+        open={open}
+        autoHideDuration={6000}
+        onClose={handleClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        sx={{
+          bottom: 'calc(56px + env(safe-area-inset-bottom, 0px) + 8px)',
+        }}
+      >
         <Alert onClose={handleClose} severity={severity} variant="filled">
           {message}
         </Alert>

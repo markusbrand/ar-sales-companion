@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Grid, Box, CircularProgress, Typography, Alert } from '@mui/material';
+import {
+  Grid,
+  Box,
+  CircularProgress,
+  Typography,
+  Alert,
+  Button,
+} from '@mui/material';
 import { fetchAssetList, AuthExpiredError } from '@/services/api';
 import { AssetCard } from '@/components/AssetCard';
 import { useAuth } from '@/context/AuthContext';
@@ -13,10 +20,30 @@ export function CatalogPage() {
   const { isAuthenticated, logout } = useAuth();
   const { showMessage } = useSnackbar();
 
+  const loadCatalog = () => {
+    if (!isAuthenticated) return;
+    setError(null);
+    setLoading(true);
+    fetchAssetList()
+      .then((list) => setAssets(list))
+      .catch((e) => {
+        if (e instanceof AuthExpiredError) {
+          logout();
+          showMessage('Sitzung abgelaufen. Bitte erneut anmelden.', 'error');
+          setError(e.message);
+        } else {
+          setError(e instanceof Error ? e.message : 'Unbekannter Fehler');
+          showMessage('Katalog konnte nicht geladen werden.', 'error');
+        }
+      })
+      .finally(() => setLoading(false));
+  };
+
   useEffect(() => {
     if (!isAuthenticated) {
       setLoading(false);
       setAssets([]);
+      setError(null);
       return;
     }
     let cancelled = false;
@@ -48,8 +75,18 @@ export function CatalogPage() {
 
   if (!isAuthenticated) {
     return (
-      <Box sx={{ textAlign: 'center', py: 4 }}>
-        <Typography color="text.secondary">
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '40vh',
+          textAlign: 'center',
+          px: 2,
+        }}
+      >
+        <Typography color="text.secondary" variant="body1">
           Bitte melden Sie sich an, um den Katalog zu sehen.
         </Typography>
       </Box>
@@ -58,25 +95,63 @@ export function CatalogPage() {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-        <CircularProgress />
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '40vh',
+        }}
+      >
+        <CircularProgress aria-label="Katalog wird geladen" />
+        <Typography color="text.secondary" variant="body2" sx={{ mt: 2 }}>
+          Katalog wird geladen…
+        </Typography>
       </Box>
     );
   }
 
   if (error) {
     return (
-      <Alert severity="error" sx={{ mt: 2 }}>
-        {error}
-      </Alert>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '40vh',
+          textAlign: 'center',
+          px: 2,
+        }}
+      >
+        <Alert severity="error" sx={{ width: '100%', maxWidth: 360, mb: 2 }}>
+          {error}
+        </Alert>
+        <Button variant="contained" onClick={loadCatalog}>
+          Erneut versuchen
+        </Button>
+      </Box>
     );
   }
 
   if (assets.length === 0) {
     return (
-      <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-        Keine Assets vorhanden.
-      </Typography>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '40vh',
+          textAlign: 'center',
+          px: 2,
+        }}
+      >
+        <Typography color="text.secondary" variant="body1">
+          Keine Assets vorhanden.
+        </Typography>
+      </Box>
     );
   }
 

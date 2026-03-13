@@ -93,7 +93,7 @@ export function ARTestPage() {
         variant="outlined"
         component="label"
         startIcon={<UploadFileIcon />}
-        sx={{ mb: 2 }}
+        sx={{ mb: 2, minHeight: 48 }}
       >
         GLB-Datei wählen
         <input
@@ -115,26 +115,43 @@ export function ARTestPage() {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             Datei: {file?.name}
           </Typography>
-          <Box sx={{ bgcolor: 'grey.100', borderRadius: 2, overflow: 'hidden', minHeight: 320 }}>
+          <Box
+            sx={{
+              bgcolor: 'grey.100',
+              borderRadius: 2,
+              overflow: 'hidden',
+              minHeight: { xs: 280, sm: 320 },
+            }}
+          >
             <ModelViewer
               ref={modelViewerRef}
               glbUrl={objectUrl}
               alt={file?.name ?? '3D model'}
             />
           </Box>
-          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+          <Box
+            sx={{
+              mt: 2,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'stretch',
+              gap: 1.5,
+            }}
+          >
             <Button
               variant="contained"
               size="large"
               startIcon={<ViewInArIcon />}
+              sx={{ minHeight: 48 }}
               onClick={handleArClick}
             >
               In AR anzeigen
             </Button>
             <Button
               variant="outlined"
-              size="small"
+              size="medium"
               startIcon={<DownloadIcon />}
+              sx={{ minHeight: 48 }}
               onClick={handleDownload}
             >
               Modell als GLB herunterladen

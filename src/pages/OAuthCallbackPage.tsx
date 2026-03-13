@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Box, CircularProgress, Typography, Alert } from '@mui/material';
+import { Box, CircularProgress, Typography, Alert, Button } from '@mui/material';
 import { authService } from '@/services/authService';
 import { useAuth } from '@/context/AuthContext';
 
@@ -45,21 +45,46 @@ export function OAuthCallbackPage() {
 
   if (error) {
     return (
-      <Box sx={{ py: 4 }}>
-        <Alert severity="error" sx={{ mb: 2 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '40vh',
+          textAlign: 'center',
+          px: 2,
+        }}
+      >
+        <Alert severity="error" sx={{ width: '100%', maxWidth: 360, mb: 2 }}>
           {error}
         </Alert>
-        <Typography color="text.secondary">
+        <Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>
           Sie können zur Startseite wechseln und es erneut versuchen.
         </Typography>
+        <Button variant="contained" onClick={() => navigate('/', { replace: true })}>
+          Zur Startseite
+        </Button>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4 }}>
-      <CircularProgress sx={{ mb: 2 }} />
-      <Typography color="text.secondary">Anmeldung wird abgeschlossen…</Typography>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '40vh',
+        textAlign: 'center',
+        px: 2,
+      }}
+    >
+      <CircularProgress aria-label="Anmeldung wird abgeschlossen" sx={{ mb: 2 }} />
+      <Typography color="text.secondary" variant="body1">
+        Anmeldung wird abgeschlossen…
+      </Typography>
     </Box>
   );
 }

@@ -9,7 +9,7 @@ import '@google/model-viewer';
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider theme={theme}>
-      <CssBaseline />
+      <CssBaseline enableColorScheme />
       <BrowserRouter>
         <App />
       </BrowserRouter>
