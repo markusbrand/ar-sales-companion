@@ -1,0 +1,2 @@
+# Dev / CI only (not installed in production Docker image)
+pytest>=8.0.0

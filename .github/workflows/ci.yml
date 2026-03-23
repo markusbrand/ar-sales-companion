@@ -30,6 +30,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Test (Vitest)
+        run: npm run test
+
       - name: Build
         run: npm run build
         env:
@@ -37,6 +40,29 @@ jobs:
           VITE_BYNDER_BASE_URL: https://bynder.example.com
           VITE_OAUTH_CALLBACK_URL: https://app.example.com
           VITE_OAUTH_CLIENT_ID: placeholder
+
+  backend-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+
+      - name: Pytest
+        working-directory: backend
+        run: pytest -v
 
   # Optional: build and push Docker image for frontend (static serve)
   # Uncomment if you want to deploy the built SPA via Docker
