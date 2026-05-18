@@ -1,0 +1,3 @@
+[submodule "aiteam"]
+	path = aiteam
+	url = https://github.com/markus-brandstaetter_redbull/aiteam.git
